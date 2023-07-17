@@ -539,6 +539,9 @@ struct connection {
 	struct ist proxy_authority;   /* Value of the authority TLV received via PROXYv2 */
 	struct ist proxy_unique_id;   /* Value of the unique ID TLV received via PROXYv2 */
 
+	struct list tlv_nodes;
+	//struct ist proxy_aws_vpce_id; /* Value of the TLV received via PROXYv2 */
+
 	/* used to identify a backend connection for http-reuse,
 	 * thus only present if conn.target is of type OBJ_TYPE_SERVER
 	 */
@@ -615,8 +618,25 @@ struct mux_proto_list {
 #define PP2_CLIENT_CERT_CONN     0x02
 #define PP2_CLIENT_CERT_SESS     0x04
 
+#define PP2_TYPE_MIN_CUSTOM     0xE0
+#define PP2_TYPE_GCP            0xE0 // Google 
+#define PP2_TYPE_AWS            0xEA // AWS
+#define PP2_TYPE_AZURE          0xEE // Azure
+#define PP2_TYPE_MAX_CUSTOM     0xEF
+
+#define PP2_TYPE_MIN_EXPERIMENT 0xF0
+#define PP2_TYPE_MAX_EXPERIMENT 0xF7
+#define PP2_TYPE_MIN_FUTURE     0xF8
+#define PP2_TYPE_MAX_FUTURE     0xFF
+
+#define PP2_SUBTYPE_AWS_VPCE_ID 0x01
+#define PP2_SUBTYPE_AZURE_PE_ID 0x01
+
 /* Max length of the authority TLV */
 #define PP2_AUTHORITY_MAX 255
+
+/* Max length of the TLV */
+#define PP2_TLV_MAX 255
 
 #define TLV_HEADER_SIZE      3
 
@@ -651,6 +671,11 @@ struct tlv {
 	uint8_t length_lo;
 	uint8_t value[0]; // WT: don't use VAR_ARRAY here, it's an end of struct marker
 }__attribute__((packed));
+
+struct tlv_node {
+	struct list list;
+	struct tlv tlv;
+};
 
 struct tlv_ssl {
 	struct tlv tlv;

@@ -1304,6 +1304,44 @@ static int srv_parse_send_proxy_v2(char **args, int *cur_arg,
 	return srv_enable_pp_flags(newsrv, SRV_PP_V2);
 }
 
+/* Parse the "set-proxy-v2-tvl" server keyword */
+static int srv_parse_set_proxy_v2_tlv(char **args, int *cur_arg,
+                                   struct proxy *curproxy, struct server *newsrv, char **err)
+{
+	
+	char *errmsg=NULL, *type, *subtype, *data;
+
+	type = args[*cur_arg + 1];
+	if (!*type) {
+		memprintf(err, "'%s' expects <type> <subtype or -1> <data>\n", args[*cur_arg]);
+		goto err;
+	}
+
+	subtype = args[*cur_arg + 2];
+	if (!*subtype) {
+		memprintf(err, "'%s' expects <type> <subtype or -1> <data>\n", args[*cur_arg]);
+		goto err;
+	}
+
+	data = args[*cur_arg + 3];
+	if (!*data) {
+		memprintf(err, "'%s' expects <type> <subtype or -1> <data>\n", args[*cur_arg]);
+		goto err;
+	}
+	*cur_arg += 3;
+
+	srv_enable_pp_flags(newsrv, SRV_PP_V2);
+	srv_enable_pp_flags(newsrv, SRV_PP_V2_SET_TLV);
+
+	qfprintf(stdout, "### Set PPV2 TLV: type:%s subtype:%s data: %s, next=%s \n", type, subtype, data, args[*cur_arg]);
+
+	return 0;
+
+ err:
+	free(errmsg);
+	return ERR_ALERT | ERR_FATAL;
+}
+
 /* Parse the "slowstart" server keyword */
 static int srv_parse_slowstart(char **args, int *cur_arg,
                                struct proxy *curproxy, struct server *newsrv, char **err)
@@ -1914,6 +1952,7 @@ static struct srv_kw_list srv_kws = { "ALL", { }, {
 	{ "resolvers",           srv_parse_resolvers,           1,  1,  0 }, /* Configure the resolver to use for name resolution */
 	{ "send-proxy",          srv_parse_send_proxy,          0,  1,  1 }, /* Enforce use of PROXY V1 protocol */
 	{ "send-proxy-v2",       srv_parse_send_proxy_v2,       0,  1,  1 }, /* Enforce use of PROXY V2 protocol */
+	{ "set-proxy-v2-tlv",    srv_parse_set_proxy_v2_tlv,    0,  0,  1 }, /* Set TLV of PROXY V2 protocol */
 	{ "shard",               srv_parse_shard,               1,  1,  1 }, /* Server shard (only in peers protocol context) */
 	{ "slowstart",           srv_parse_slowstart,           1,  1,  1 }, /* Set the warm-up timer for a previously failed server */
 	{ "source",              srv_parse_source,             -1,  1,  1 }, /* Set the source address to be used to connect to the server */
