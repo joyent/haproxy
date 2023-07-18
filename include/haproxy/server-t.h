@@ -163,8 +163,8 @@ enum srv_initaddr {
 #define SRV_PP_V2_AUTHORITY     0x0080   /* proxy protocol version 2 with authority */
 #define SRV_PP_V2_CRC32C        0x0100   /* proxy protocol version 2 with crc32c */
 #define SRV_PP_V2_UNIQUE_ID     0x0200   /* proxy protocol version 2 with unique ID */
-#define SRV_PP_V2_SET_TLV       0x0400   /* proxy protocol version 2 with TLV */
-#define SRV_PP_V2_FWD_TLV       0x0800   /* proxy protocol version 2 with TLV */
+#define SRV_PP_V2_SET_TLV       0x0400   /* set proxy protocol version 2 with TLV */
+#define SRV_PP_V2_CONV_TLV      0x0800   /* convert proxy protocol version 2 with TLV to http header */
 
 /* function which act on servers need to return various errors */
 #define SRV_STATUS_OK       0   /* everything is OK. */
@@ -434,6 +434,8 @@ struct server {
 	struct conn_src conn_src;               /* connection source settings */
 	struct sockaddr_storage addr;           /* the address to connect to, doesn't include the port */
 	struct sockaddr_storage socks4_addr;	/* the address of the SOCKS4 Proxy, including the port */
+
+	struct list tlv_nodes;        /* server's Proxy V2 TLVs */
 
 	EXTRA_COUNTERS(extra_counters);
 };

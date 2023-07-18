@@ -49,6 +49,9 @@
 #include <haproxy/xxhash.h>
 #include <haproxy/event_hdl.h>
 
+#define TLV_DELIM          ";"
+#define TLV_VALUE_DELIM    "="
+
 
 static void srv_update_status(struct server *s, int type, int cause);
 static int srv_apply_lastaddr(struct server *srv, int *err_code);
@@ -1304,36 +1307,81 @@ static int srv_parse_send_proxy_v2(char **args, int *cur_arg,
 	return srv_enable_pp_flags(newsrv, SRV_PP_V2);
 }
 
-/* Parse the "set-proxy-v2-tvl" server keyword */
+static struct tlv_node* parse_tlv_kv(char* str, char *delim)
+{
+    char *key = NULL;
+    char *val = NULL;
+    uint16_t l;
+    struct tlv_node *cur_node;
+
+    key = strtok_r(str, delim, &val);
+    val = strtok_r(NULL, delim, &val);
+    l = (uint16_t)strlen(val);
+
+    cur_node = (struct tlv_node*)malloc(sizeof(struct tlv_node) + l + 1);
+    if (cur_node == NULL) {
+        return NULL;
+    }
+
+	LIST_INIT(&cur_node->list);
+    
+    cur_node->tlv.type = (uint8_t)strtol(key, NULL, 0);
+    strncpy((char*)cur_node->tlv.value, val, l);
+    cur_node->tlv.value[l] = '\0';
+
+	cur_node->tlv.length_hi = l >> 8;
+	cur_node->tlv.length_lo = l & 0x00ff;
+
+	return cur_node;
+}
+
+static int parse_tlv(struct server *newsrv, char* value, char *delim) 
+{
+	struct tlv_node *node;
+    char *ret_ptr = NULL;
+    char *next_ptr = NULL;
+	int cnt=0;
+
+    ret_ptr = strtok_r(value, delim, &next_ptr);
+
+    while(ret_ptr) {
+        node = parse_tlv_kv(ret_ptr, TLV_VALUE_DELIM);
+		if (node != NULL) {
+			LIST_APPEND(&newsrv->tlv_nodes, &node->list);
+			cnt ++;
+
+			ha_notice("### srv=0x%p, node=0x%p, tlv.type=0x%x, value=%s \n", 
+					 newsrv, node, node->tlv.type, node->tlv.value);
+		}
+
+        ret_ptr = strtok_r(NULL, delim, &next_ptr);
+    }
+
+	return cnt;
+}
+
+/* Parse the "set-proxy-v2-tlv" server keyword */
 static int srv_parse_set_proxy_v2_tlv(char **args, int *cur_arg,
                                    struct proxy *curproxy, struct server *newsrv, char **err)
 {
-	
-	char *errmsg=NULL, *type, *subtype, *data;
+	// ### jiho
+	char *errmsg=NULL, *value;
+	int nodes;
 
-	type = args[*cur_arg + 1];
-	if (!*type) {
-		memprintf(err, "'%s' expects <type> <subtype or -1> <data>\n", args[*cur_arg]);
+	value = args[*cur_arg + 1];
+	if (!*value) {
+		memprintf(err, "'%s' expects <tlv>\n", args[*cur_arg]);
 		goto err;
 	}
 
-	subtype = args[*cur_arg + 2];
-	if (!*subtype) {
-		memprintf(err, "'%s' expects <type> <subtype or -1> <data>\n", args[*cur_arg]);
-		goto err;
-	}
+	*cur_arg += 1;
 
-	data = args[*cur_arg + 3];
-	if (!*data) {
-		memprintf(err, "'%s' expects <type> <subtype or -1> <data>\n", args[*cur_arg]);
-		goto err;
-	}
-	*cur_arg += 3;
+    nodes = parse_tlv(newsrv, value, TLV_DELIM);
 
 	srv_enable_pp_flags(newsrv, SRV_PP_V2);
 	srv_enable_pp_flags(newsrv, SRV_PP_V2_SET_TLV);
 
-	qfprintf(stdout, "### Set PPV2 TLV: type:%s subtype:%s data: %s, next=%s \n", type, subtype, data, args[*cur_arg]);
+	ha_notice("### Set PPV2 TLV: nodes=%d \n", nodes);
 
 	return 0;
 
@@ -2467,6 +2515,7 @@ struct server *new_server(struct proxy *proxy)
 	LIST_APPEND(&servers_list, &srv->global_list);
 	LIST_INIT(&srv->srv_rec_item);
 	LIST_INIT(&srv->ip_rec_item);
+	LIST_INIT(&srv->tlv_nodes);
 	MT_LIST_INIT(&srv->prev_deleted);
 	event_hdl_sub_list_init(&srv->e_subs);
 	srv->rid = 0; /* rid defaults to 0 */
@@ -2524,6 +2573,20 @@ void srv_free_params(struct server *srv)
 		xprt_get(XPRT_SSL)->destroy_srv(srv);
 }
 
+void srv_free_tlv_nodes(struct server *srv) 
+{
+	// ### jiho free tlv_nodes
+	struct tlv_node *node, *back;
+	
+	list_for_each_entry_safe(node, back, &srv->tlv_nodes, list) {
+		ha_notice("### cleanuptlv_nodes: srv=0x%p, node=0x%p \n", srv, node);
+
+		LIST_DEL_INIT(&node->list);
+		free(node);
+	}
+}
+
+
 /* Deallocate a server <srv> and its member. <srv> must be allocated. For
  * dynamic servers, its refcount is decremented first. The free operations are
  * conducted only if the refcount is nul.
@@ -2563,6 +2626,9 @@ struct server *srv_drop(struct server *srv)
 
 	LIST_DELETE(&srv->global_list);
 	event_hdl_sub_list_destroy(&srv->e_subs);
+
+	// ### jiho free tlv_nodes
+	srv_free_tlv_nodes(srv);
 
 	EXTRA_COUNTERS_FREE(srv->extra_counters);
 

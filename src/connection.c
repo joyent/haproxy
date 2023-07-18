@@ -509,8 +509,9 @@ void conn_free(struct connection *conn)
 	pool_free(pool_head_conn_hash_node, conn->hash_node);
 	conn->hash_node = NULL;
 
+	// ### jiho
 	list_for_each_entry_safe(tlvnode, tlvnodeb, &conn->tlv_nodes, list) {
-		LIST_DELETE(&tlvnode->list);
+		LIST_DEL_INIT(&tlvnode->list);
 		free(tlvnode);
 	}
 
@@ -1098,9 +1099,8 @@ int conn_recv_proxy(struct connection *conn, int flag)
 				break;
 			}
 
-			// ### jiho
-			case PP2_TYPE_MIN_CUSTOM ... PP2_TYPE_MAX_CUSTOM: 
-				if (TRUE) {
+			case PP2_TYPE_MIN_CUSTOM ... PP2_TYPE_MAX_CUSTOM: {
+				// ### jiho
 					size_t tlv_node_len;
 					struct tlv_node *node;
 
@@ -1108,13 +1108,19 @@ int conn_recv_proxy(struct connection *conn, int flag)
 						goto bad_header;
 					}
 
-					qfprintf(stdout, "### Received Custom TLV: type=0x%x, len=%lu \n", tlv_packet->type, tlv_len);
+					ha_notice("### Received Custom TLV: type=0x%x, len=%lu \n", tlv_packet->type, tlv_len);
 
 					tlv_node_len = sizeof(struct tlv_node) + tlv_len;
+					// FIXME: use memory pool
 					node = malloc(tlv_node_len);
-					LIST_INIT(&node->list);
+					if (node == NULL) {
+						ha_alert("failed to malloc tlv_node, len=%d \n", (int)tlv_node_len);
+						goto fail;
+					}
 
+					LIST_INIT(&node->list);
 					memcpy(&node->tlv, tlv_packet, TLV_HEADER_SIZE);
+					
 					if (tlv_len > 0) {
 						memcpy(&node->tlv.value, istptr(tlv), tlv_len);
 					}
@@ -1122,7 +1128,7 @@ int conn_recv_proxy(struct connection *conn, int flag)
 					// store it
 					LIST_APPEND(&conn->tlv_nodes, &node->list);
 
-					qfprintf(stdout, "### Copyed Custom TLV: type=0x%x, len=%lu \n", 
+					ha_notice("### Copyed Custom TLV: type=0x%x, len=%lu \n", 
 							 node->tlv.type, get_tlv_length((const struct tlv*)&node->tlv));
 			}
 			default:
@@ -1851,6 +1857,17 @@ static int make_tlv(char *dest, int dest_len, char type, uint16_t length, const 
 	return length + sizeof(*tlv);
 }
 
+static int copy_tlv(char *dest, int dest_len, struct tlv *tlv)
+{
+	size_t length = TLV_HEADER_SIZE + get_tlv_length(tlv);
+
+	if (!dest || length > dest_len)
+		return 0;
+
+	memcpy(dest, tlv, length);
+	return length;
+}
+
 /* Note: <remote> is explicitly allowed to be NULL */
 static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct connection *remote, struct stream *strm)
 {
@@ -1863,6 +1880,7 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 	const struct sockaddr_storage *dst = &null_addr;
 	const char *value;
 	int value_len;
+	struct tlv_node *node;
 
 	if (buf_len < PP2_HEADER_LEN)
 		return 0;
@@ -1982,54 +2000,25 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 
 	// ### jiho
 	if (strm && (srv->pp_opts & SRV_PP_V2_SET_TLV)) {
-		//struct session* sess = strm_sess(strm);
-		char tlv_type = 0xea;
-		char value[20];
 
+		list_for_each_entry(node, &srv->tlv_nodes, list) {
+			ha_notice("### append tlv: srv=0x%p, node=0x%p, type=0x%x, val=%s \n", 
+					  srv, node, node->tlv.type, (char*)node->tlv.value);
 
-		qfprintf(stdout, "### Set PPV2 TLV: 0x%x:%d -> 0x%x:%d \n",
-				 ((struct sockaddr_in *)src)->sin_addr.s_addr,
-				 ((struct sockaddr_in *)src)->sin_port,
-				 ((struct sockaddr_in *)dst)->sin_addr.s_addr,
-				 ((struct sockaddr_in *)dst)->sin_port);
-
-		value[0] = PP2_SUBTYPE_AWS_VPCE_ID;
-		value[1] = 0x1;
-		value[2] = 0x2;
-		value[3] = 0x3;
-		value[4] = 0x4;
-		value[5] = 0x5;
-		value[6] = 0x6;
-		value[7] = 0x7;
-		value[8] = 0x8;
-
-		value_len = 9;
-
-		if (value_len >= 0) {
-			if ((buf_len - ret) < sizeof(struct tlv))
-				return 0;
-
-			ret += make_tlv(&buf[ret], (buf_len - ret), tlv_type, value_len, value);
+			/* append TLVs from config */
+			ret += copy_tlv(&buf[ret], (buf_len - ret), &node->tlv);
 		}
 	}
 
+
 	// ### jiho
-	if (strm && (srv->pp_opts & SRV_PP_V2_FWD_TLV)) {
-		struct tlv_node *tlv_node;
-		struct tlv *tlv;
-		uint16_t tlv_len;
+	list_for_each_entry(node, &remote->tlv_nodes, list) {
+		// copy TLVs from remote's
 
-		list_for_each_entry(tlv_node, &remote->tlv_nodes, list) {
-			tlv = &tlv_node->tlv;
-			tlv_len = (uint16_t)get_tlv_length(tlv);
+		ha_notice("### append tlv from remote: srv=0x%p, node=0x%p, type=0x%x, val=%s \n", 
+				  srv, node, node->tlv.type, (char*)node->tlv.value);
 
-			// copy TLVs from remote
-			qfprintf(stdout, "### Received Custom TLV: type=0x%x, len=%u \n", tlv->type, tlv_len);
-
-			if (tlv_len != 0) {
-				ret += make_tlv(&buf[ret], (buf_len - ret), tlv->type, tlv_len, (const char*)tlv->value);
-			}
-		}
+		ret += copy_tlv(&buf[ret], (buf_len - ret), &node->tlv);
 	}
 
 #ifdef USE_OPENSSL
@@ -2399,7 +2388,7 @@ static struct sample_fetch_kw_list sample_fetch_keywords = {ILH, {
 	{ "fc_rcvd_proxy", smp_fetch_fc_rcvd_proxy, 0, NULL, SMP_T_BOOL, SMP_USE_L4CLI },
 	{ "fc_pp_authority", smp_fetch_fc_pp_authority, 0, NULL, SMP_T_STR, SMP_USE_L4CLI },
 	{ "fc_pp_unique_id", smp_fetch_fc_pp_unique_id, 0, NULL, SMP_T_STR, SMP_USE_L4CLI },
-	// ### Jiho
+	// ### jiho
 	{ "fc_pp_tlv", smp_fetch_fc_pp_tlv, 0, NULL, SMP_T_BIN, SMP_USE_L5CLI },
 	//{ "capture.res.hdr",    smp_fetch_capture_res_hdr,    ARG1(1,SINT),     NULL,   SMP_T_STR,  SMP_USE_HRSHP },
 	//{ "req.body_param",     smp_fetch_body_param,         ARG2(0,STR,STR),  NULL,    SMP_T_BIN,  SMP_USE_HRQHV },

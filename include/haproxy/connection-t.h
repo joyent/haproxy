@@ -539,8 +539,7 @@ struct connection {
 	struct ist proxy_authority;   /* Value of the authority TLV received via PROXYv2 */
 	struct ist proxy_unique_id;   /* Value of the unique ID TLV received via PROXYv2 */
 
-	struct list tlv_nodes;
-	//struct ist proxy_aws_vpce_id; /* Value of the TLV received via PROXYv2 */
+	struct list tlv_nodes;        /* Custom TLVs received via PROXYv2 */
 
 	/* used to identify a backend connection for http-reuse,
 	 * thus only present if conn.target is of type OBJ_TYPE_SERVER
@@ -675,7 +674,7 @@ struct tlv {
 struct tlv_node {
 	struct list list;
 	struct tlv tlv;
-};
+}__attribute__((packed));
 
 struct tlv_ssl {
 	struct tlv tlv;
