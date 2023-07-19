@@ -773,14 +773,6 @@ int conn_ctrl_drain(struct connection *conn)
 	return ret;
 }
 
-/*
- * Get data length from tlv
- */
-static inline size_t get_tlv_length(const struct tlv *src)
-{
-	return (src->length_hi << 8) | src->length_lo;
-}
-
 /* This handshake handler waits a PROXY protocol header at the beginning of the
  * raw data stream. The header looks like this :
  *
@@ -2012,15 +2004,16 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 		}
 	}
 
-
 	// ### jiho
-	list_for_each_entry(node, &remote->tlv_nodes, list) {
-		// copy TLVs from remote's
+	if (strm && remote) {
+		list_for_each_entry(node, &remote->tlv_nodes, list) {
+			// copy TLVs from remote's
 
-		ha_notice("### append tlv from remote: srv=%p, node=%p, type=0x%x, val=%s \n", 
-				  srv, node, node->tlv.type, (char*)node->tlv.value);
+			ha_notice("### append tlv from remote: srv=%p, node=%p, type=0x%x, val=%s \n", 
+					  srv, node, node->tlv.type, (char*)node->tlv.value);
 
-		ret += copy_tlv(&buf[ret], (buf_len - ret), &node->tlv);
+			ret += copy_tlv(&buf[ret], (buf_len - ret), &node->tlv);
+		}
 	}
 
 #ifdef USE_OPENSSL
@@ -2289,33 +2282,6 @@ int smp_fetch_fc_pp_unique_id(const struct arg *args, struct sample *smp, const 
 	return 1;
 }
 
-/* fetch the TLV from a PROXY protocol header */
-int smp_fetch_fc_pp_tlv(const struct arg *args, struct sample *smp, const char *kw, void *private)
-{
-	// ### jiho
-	struct connection *conn;
-
-	conn = objt_conn(smp->sess->origin);
-	if (!conn)
-		return 0;
-
-	if (conn->flags & CO_FL_WAIT_XPRT) {
-		smp->flags |= SMP_F_MAY_CHANGE;
-		return 0;
-	}
-
-	if (!isttest(conn->proxy_unique_id))
-		return 0;
-
-	// XXX: FIXME
-	smp->flags = 0;
-	smp->data.type = SMP_T_STR;
-	smp->data.u.str.area = istptr(conn->proxy_unique_id);
-	smp->data.u.str.data = istlen(conn->proxy_unique_id);
-
-	return 1;
-}
-
 /* fetch the error code of a connection */
 int smp_fetch_fc_err(const struct arg *args, struct sample *smp, const char *kw, void *private)
 {
@@ -2390,10 +2356,6 @@ static struct sample_fetch_kw_list sample_fetch_keywords = {ILH, {
 	{ "fc_rcvd_proxy", smp_fetch_fc_rcvd_proxy, 0, NULL, SMP_T_BOOL, SMP_USE_L4CLI },
 	{ "fc_pp_authority", smp_fetch_fc_pp_authority, 0, NULL, SMP_T_STR, SMP_USE_L4CLI },
 	{ "fc_pp_unique_id", smp_fetch_fc_pp_unique_id, 0, NULL, SMP_T_STR, SMP_USE_L4CLI },
-	// ### jiho
-	{ "fc_pp_tlv", smp_fetch_fc_pp_tlv, 0, NULL, SMP_T_BIN, SMP_USE_L5CLI },
-	//{ "capture.res.hdr",    smp_fetch_capture_res_hdr,    ARG1(1,SINT),     NULL,   SMP_T_STR,  SMP_USE_HRSHP },
-	//{ "req.body_param",     smp_fetch_body_param,         ARG2(0,STR,STR),  NULL,    SMP_T_BIN,  SMP_USE_HRQHV },
 	{ /* END */ },
 }};
 

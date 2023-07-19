@@ -694,6 +694,14 @@ static inline int conn_is_ssl(struct connection *conn)
 	return !!conn_get_ssl_sock_ctx(conn);
 }
 
+/*
+ * Get data length from tlv
+ */
+static inline size_t get_tlv_length(const struct tlv *src)
+{
+	return (src->length_hi << 8) | src->length_lo;
+}
+
 #endif /* _HAPROXY_CONNECTION_H */
 
 /*
