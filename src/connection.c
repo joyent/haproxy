@@ -1891,10 +1891,10 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 
 	/* At least one of src or dst is not of AF_INET or AF_INET6 */
 	if (  !src
-		  || !dst
-		  || (!pp2_never_send_local && conn_is_back(remote)) // locally initiated connection
-		  || (src->ss_family != AF_INET && src->ss_family != AF_INET6)
-		  || (dst->ss_family != AF_INET && dst->ss_family != AF_INET6)) {
+	   || !dst
+	   || (!pp2_never_send_local && conn_is_back(remote)) // locally initiated connection
+	   || (src->ss_family != AF_INET && src->ss_family != AF_INET6)
+	   || (dst->ss_family != AF_INET && dst->ss_family != AF_INET6)) {
 		if (buf_len < PP2_HDR_LEN_UNSPEC)
 			return 0;
 		hdr->ver_cmd = PP2_VERSION | PP2_CMD_LOCAL;
@@ -2043,16 +2043,16 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 				struct buffer *cn_trash = get_trash_chunk();
 				if (ssl_sock_get_remote_common_name(remote, cn_trash) > 0) {
 					ssl_tlv_len += make_tlv(&buf[ret+ssl_tlv_len], (buf_len - ret - ssl_tlv_len), PP2_SUBTYPE_SSL_CN,
-											cn_trash->data,
-											cn_trash->area);
+								cn_trash->data,
+								cn_trash->area);
 				}
 			}
 			if (srv->pp_opts & SRV_PP_V2_SSL_KEY_ALG) {
 				struct buffer *pkey_trash = get_trash_chunk();
 				if (ssl_sock_get_pkey_algo(remote, pkey_trash) > 0) {
 					ssl_tlv_len += make_tlv(&buf[ret+ssl_tlv_len], (buf_len - ret - ssl_tlv_len), PP2_SUBTYPE_SSL_KEY_ALG,
-											pkey_trash->data,
-											pkey_trash->area);
+								pkey_trash->data,
+								pkey_trash->area);
 				}
 			}
 			if (srv->pp_opts & SRV_PP_V2_SSL_SIG_ALG) {

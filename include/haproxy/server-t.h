@@ -164,7 +164,6 @@ enum srv_initaddr {
 #define SRV_PP_V2_CRC32C        0x0100   /* proxy protocol version 2 with crc32c */
 #define SRV_PP_V2_UNIQUE_ID     0x0200   /* proxy protocol version 2 with unique ID */
 #define SRV_PP_V2_SET_TLV       0x0400   /* set proxy protocol version 2 with TLV */
-#define SRV_PP_V2_CONV_TLV      0x0800   /* convert proxy protocol version 2 with TLV to http header */
 
 /* function which act on servers need to return various errors */
 #define SRV_STATUS_OK       0   /* everything is OK. */
