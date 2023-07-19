@@ -511,6 +511,8 @@ void conn_free(struct connection *conn)
 
 	// ### jiho
 	list_for_each_entry_safe(tlvnode, tlvnodeb, &conn->tlv_nodes, list) {
+		ha_notice("### free tlv node: node=%p, type=0x%x, val=%s \n", tlvnode, tlvnode->tlv.type, (char*)tlvnode->tlv.value);
+
 		LIST_DEL_INIT(&tlvnode->list);
 		free(tlvnode);
 	}
@@ -1108,7 +1110,7 @@ int conn_recv_proxy(struct connection *conn, int flag)
 						goto bad_header;
 					}
 
-					ha_notice("### Received Custom TLV: type=0x%x, len=%lu \n", tlv_packet->type, tlv_len);
+					//ha_notice("### Received Custom TLV: type=0x%x, len=%lu \n", tlv_packet->type, tlv_len);
 
 					tlv_node_len = sizeof(struct tlv_node) + tlv_len;
 					// FIXME: use memory pool
@@ -1128,8 +1130,8 @@ int conn_recv_proxy(struct connection *conn, int flag)
 					// store it
 					LIST_APPEND(&conn->tlv_nodes, &node->list);
 
-					ha_notice("### Copyed Custom TLV: type=0x%x, len=%lu \n", 
-							 node->tlv.type, get_tlv_length((const struct tlv*)&node->tlv));
+					ha_notice("### Stored Custom TLV: node=%p, type=0x%x, len=%lu \n", 
+							 node, node->tlv.type, get_tlv_length((const struct tlv*)&node->tlv));
 			}
 			default:
 				break;
@@ -2002,7 +2004,7 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 	if (strm && (srv->pp_opts & SRV_PP_V2_SET_TLV)) {
 
 		list_for_each_entry(node, &srv->tlv_nodes, list) {
-			ha_notice("### append tlv: srv=0x%p, node=0x%p, type=0x%x, val=%s \n", 
+			ha_notice("### append tlv: srv=%p, node=%p, type=0x%x, val=%s \n", 
 					  srv, node, node->tlv.type, (char*)node->tlv.value);
 
 			/* append TLVs from config */
@@ -2015,7 +2017,7 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 	list_for_each_entry(node, &remote->tlv_nodes, list) {
 		// copy TLVs from remote's
 
-		ha_notice("### append tlv from remote: srv=0x%p, node=0x%p, type=0x%x, val=%s \n", 
+		ha_notice("### append tlv from remote: srv=%p, node=%p, type=0x%x, val=%s \n", 
 				  srv, node, node->tlv.type, (char*)node->tlv.value);
 
 		ret += copy_tlv(&buf[ret], (buf_len - ret), &node->tlv);

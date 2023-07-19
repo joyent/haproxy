@@ -1350,7 +1350,7 @@ static int parse_tlv(struct server *newsrv, char* value, char *delim)
 			LIST_APPEND(&newsrv->tlv_nodes, &node->list);
 			cnt ++;
 
-			ha_notice("### srv=0x%p, node=0x%p, tlv.type=0x%x, value=%s \n", 
+			ha_notice("### srv=%p, node=%p, tlv.type=0x%x, value=%s \n", 
 					 newsrv, node, node->tlv.type, node->tlv.value);
 		}
 
