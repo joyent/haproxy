@@ -1610,6 +1610,12 @@ static enum act_return http_action_set_ppv2_tlv_header(struct act_rule *rule, st
 
 	if (len < 1) {
 		return ret;
+	} 
+	else if (max_len < len) {
+		val[max_len-1] = '\0';
+	} 
+	else {
+		val[len] = '\0';
 	}
 
 	n = rule->arg.http.str;
@@ -1754,6 +1760,12 @@ static enum act_return http_action_set_ppv2_header(struct act_rule *rule, struct
 
 	if (len < 1) {
 		return ret;
+	} 
+	else if (max_len < len) {
+		val[max_len-1] = '\0';
+	} 
+	else {
+		val[len] = '\0';
 	}
 
 	n = rule->arg.http.str;
