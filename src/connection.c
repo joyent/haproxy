@@ -987,6 +987,8 @@ int conn_recv_proxy(struct connection *conn, int flag)
 	if (trash.data < total_v2_len)
 		goto missing;
 
+	ha_alert("### ppv2 cmd: 0x%x \n", hdr_v2->ver_cmd & PP2_CMD_MASK);
+
 	switch (hdr_v2->ver_cmd & PP2_CMD_MASK) {
 	case 0x01: /* PROXY command */
 		switch (hdr_v2->fam) {
@@ -1040,6 +1042,8 @@ int conn_recv_proxy(struct connection *conn, int flag)
 			/* Verify that the TLV length does not exceed the total PROXYv2 length */
 			if (tlv_offset > total_v2_len)
 				goto bad_header;
+
+			ha_alert("### ppv2 tlv type: 0x%x \n", tlv_packet->type);
 
 			switch (tlv_packet->type) {
 			case PP2_TYPE_CRC32C: {
@@ -1099,6 +1103,7 @@ int conn_recv_proxy(struct connection *conn, int flag)
 					struct tlv_node *node;
 
 					if (tlv_len > PP2_TLV_MAX) {
+						ha_alert("exceed max tlv: tlv_len=%lu > tlv_max=%d \n", tlv_len, PP2_TLV_MAX);
 						goto bad_header;
 					}
 
@@ -1994,10 +1999,9 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 
 	// ### jiho
 	if (strm && (srv->pp_opts & SRV_PP_V2_SET_TLV)) {
-
 		list_for_each_entry(node, &srv->tlv_nodes, list) {
-			ha_notice("### append tlv: srv=%p, node=%p, type=0x%x, val=%s \n", 
-					  srv, node, node->tlv.type, (char*)node->tlv.value);
+			ha_notice("### set tlv: srv=%p, node=%p, type=0x%x, val=%s, but=%p:%d \n", 
+					  srv, node, node->tlv.type, (char*)node->tlv.value, &buf[ret], buf_len - ret);
 
 			/* append TLVs from config */
 			ret += copy_tlv(&buf[ret], (buf_len - ret), &node->tlv);
