@@ -1570,10 +1570,12 @@ static int generate_ppv2_tlv_header(struct list *tlv_lists, char *buf, int max_l
 		if (max_len <= (len+tlv_val_len+CODE_LEN)) {
 			break;
 		}
-
 		len += snprintf(&buf[len], max_len-len, "0x%02x=", node->type);
-		len += a2base64((char*)node->value, tlv_val_len, &buf[len], max_len-len);
-		buf[len++] = ';';
+		strncpy(&buf[len], (char*)node->value, tlv_val_len);
+		len += tlv_val_len;
+		if (node->list.n != tlv_lists) {
+			buf[len++] = ';';
+		}
 	}
 
 	return len;
@@ -1596,7 +1598,7 @@ static enum act_return http_action_set_ppv2_tlv_header(struct act_rule *rule, st
 	val[0] = '\0';
 
 	// req only
-	if (srv == NULL || rule->from == ACT_F_HTTP_RES) {
+	if (rule->from == ACT_F_HTTP_RES) {
 		return ret;
 	}
 
@@ -1610,10 +1612,10 @@ static enum act_return http_action_set_ppv2_tlv_header(struct act_rule *rule, st
 
 	if (len < 1) {
 		return ret;
-	} 
+	}
 	else if (max_len < len) {
 		val[max_len-1] = '\0';
-	} 
+	}
 	else {
 		val[len] = '\0';
 	}
@@ -1710,7 +1712,7 @@ static int generate_ppv2_header(char *buf, int buf_len, const struct sockaddr_st
 			return 0;
 	}
 
-	ret = snprintf(buf, buf_len, "address-type=%s;source-address=%s:%u;destination-address=%s:%u;", 
+	ret = snprintf(buf, buf_len, "address-type=%s;source-address=%s:%u;destination-address=%s:%u;",
 				   protocol, src_str, ntohs(src_port), dst_str, ntohs(dst_port));
 
 	if (ret >= buf_len)
@@ -1758,10 +1760,10 @@ static enum act_return http_action_set_ppv2_header(struct act_rule *rule, struct
 
 	if (len < 1) {
 		return ret;
-	} 
+	}
 	else if (max_len < len) {
 		val[max_len-1] = '\0';
-	} 
+	}
 	else {
 		val[len] = '\0';
 	}
