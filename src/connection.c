@@ -2048,6 +2048,26 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 		}
 	}
 
+	/* copy server TLVs, joyent */
+	if (strm && (srv->pp_opts & SRV_PP_V2_SET_TLV)) {
+		struct conn_tlv_list *node;
+
+		list_for_each_entry(node, &srv->tlv_list, list) {
+			/* append TLVs from config */
+			ret += make_tlv(&buf[ret], (buf_len - ret), node->type, node->len, node->value);
+		}
+	}
+
+	/* copy TLVs from remote's, joyent */
+	if (strm && remote) {
+		struct conn_tlv_list *node;
+
+		list_for_each_entry(node, &remote->tlv_list, list) {
+			/* append remote TLVs */
+			ret += make_tlv(&buf[ret], (buf_len - ret), node->type, node->len, node->value);
+		}
+	}
+
 #ifdef USE_OPENSSL
 	if (srv->pp_opts & SRV_PP_V2_SSL) {
 		struct tlv_ssl *tlv;
