@@ -2049,7 +2049,7 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 
 		list_for_each_entry(node, &srv->tlv_list, list) {
 			/* append TLVs from config */
-			ret += make_tlv(&buf[ret], (buf_len - ret), node->type, node->len, node);
+			ret += make_tlv(&buf[ret], (buf_len - ret), node->type, node->len, node->value);
 		}
 	}
 
@@ -2059,7 +2059,7 @@ static int make_proxy_line_v2(char *buf, int buf_len, struct server *srv, struct
 
 		list_for_each_entry(node, &remote->tlv_list, list) {
 			/* append remote TLVs */
-			ret += make_tlv(&buf[ret], (buf_len - ret), node->type, node->len, node);
+			ret += make_tlv(&buf[ret], (buf_len - ret), node->type, node->len, node->value);
 		}
 	}
 
