@@ -51,7 +51,6 @@
 
 #define TLV_DELIM          ";\n"
 #define TLV_VALUE_DELIM    "="
-#define TLV_VALUE_LEN      2048
 
 
 static void srv_update_status(struct server *s, int type, int cause);
@@ -1317,19 +1316,19 @@ static struct conn_tlv_list* parse_tlv_kv(char* str)
         uint16_t l;
 
         key = strtok_r(str, TLV_VALUE_DELIM, &saveptr_int);
-        if (key == NULL) {
+        if (unlikely(key == NULL)) {
                  ha_warning("'%s' ignoring TLV, invalid key.\n", str);
                  return NULL;
         }
 
         val = strtok_r(NULL, TLV_VALUE_DELIM, &saveptr_int);
-        if (val == NULL) {
+        if (unlikely(val == NULL)) {
                 ha_warning("'%s' ignoring TLV, invalid value.\n", str);
                 return NULL;
         }
 
         l = (uint16_t)strlen(val);
-        if (l > TLV_VALUE_LEN) {
+	if (unlikely(l > HA_PP2_MAX_ALLOC)) {
                 ha_warning("'%s' ignoring TLV, invalid length.\n", str);
                 return NULL;
         }
