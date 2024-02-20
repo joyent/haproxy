@@ -1330,39 +1330,39 @@ static int srv_parse_send_proxy_v2(char **args, int *cur_arg,
 
 static struct conn_tlv_list* parse_tlv_kv(char* str)
 {
-        struct conn_tlv_list *cur_node;
-        char *key = NULL;
-        char *val = NULL;
-        char *saveptr_int = NULL;
-        uint16_t l;
+	struct conn_tlv_list *cur_node;
+	char *key = NULL;
+	char *val = NULL;
+	char *saveptr_int = NULL;
+	uint16_t l;
 
-        key = strtok_r(str, TLV_VALUE_DELIM, &saveptr_int);
-        if (unlikely(key == NULL)) {
-                 ha_warning("'%s' ignoring TLV, invalid key.\n", str);
-                 return NULL;
-        }
+	key = strtok_r(str, TLV_VALUE_DELIM, &saveptr_int);
+	if (unlikely(key == NULL)) {
+		ha_warning("'%s' ignoring TLV, invalid key.\n", str);
+		return NULL;
+	}
 
-        val = strtok_r(NULL, TLV_VALUE_DELIM, &saveptr_int);
-        if (unlikely(val == NULL)) {
-                ha_warning("'%s' ignoring TLV, invalid value.\n", str);
-                return NULL;
-        }
+	val = strtok_r(NULL, TLV_VALUE_DELIM, &saveptr_int);
+	if (unlikely(val == NULL)) {
+		ha_warning("'%s' ignoring TLV, invalid value.\n", str);
+		return NULL;
+	}
 
-        l = (uint16_t)strlen(val);
+	l = (uint16_t)strlen(val);
 	if (unlikely(l > HA_PP2_MAX_ALLOC)) {
-                ha_warning("'%s' ignoring TLV, invalid length.\n", str);
-                return NULL;
-        }
+		ha_warning("'%s' ignoring TLV, invalid length.\n", str);
+		return NULL;
+	}
 
-        cur_node = (struct conn_tlv_list*)malloc(sizeof(struct conn_tlv_list) + l + 1);
-        if (unlikely(!cur_node))
-                return NULL;
+	cur_node = (struct conn_tlv_list*)malloc(sizeof(struct conn_tlv_list) + l + 1);
+	if (unlikely(!cur_node))
+		return NULL;
 
 	LIST_INIT(&cur_node->list);
 
-        cur_node->type = (uint8_t)strtol(key, NULL, 0);
-        strncpy((char*)cur_node->value, val, l);
-        cur_node->value[l] = '\0';
+	cur_node->type = (uint8_t)strtol(key, NULL, 0);
+	strncpy((char*)cur_node->value, val, l);
+	cur_node->value[l] = '\0';
 	cur_node->len = l;
 
 	return cur_node;
@@ -1372,20 +1372,20 @@ static struct conn_tlv_list* parse_tlv_kv(char* str)
 /* 0xe0=this-is-tlv-value;0x30=tlv-123456; */
 static int parse_tlv(struct server *newsrv, char* value)
 {
-        struct conn_tlv_list *node;
-        char *ret_ptr = NULL;
-        char *saveptr_ext = NULL;
+	struct conn_tlv_list *node;
+	char *ret_ptr = NULL;
+	char *saveptr_ext = NULL;
 	int cnt=0;
 
-        ret_ptr = strtok_r(value, TLV_DELIM, &saveptr_ext);
-        while(ret_ptr) {
-                node = parse_tlv_kv(ret_ptr);
+	ret_ptr = strtok_r(value, TLV_DELIM, &saveptr_ext);
+	while(ret_ptr) {
+		node = parse_tlv_kv(ret_ptr);
 		if (node != NULL) {
 			LIST_APPEND(&newsrv->tlv_list, &node->list);
 			cnt ++;
 		}
-                ret_ptr = strtok_r(NULL, TLV_DELIM, &saveptr_ext);
-        }
+		ret_ptr = strtok_r(NULL, TLV_DELIM, &saveptr_ext);
+	}
 
 	return cnt;
 }
